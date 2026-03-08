@@ -1,9 +1,14 @@
+FREE_USER_LIFETIME_MONTHS = 0.5
+
+
 def calculate_unit_economics(
     churn_rate: float, 
     conversion_rate: float, 
     virality_rate: float, 
     cac: float, 
-    subscription_price: float
+    subscription_price: float,
+    cost_per_free_user: float = 0.0,
+    cost_per_paying_user: float = 0.0,
 ) -> dict:
     """
     Calculates the unit economics for an app including LTV, LTV/CAC ratio, 
@@ -27,14 +32,23 @@ def calculate_unit_economics(
     # 4. Calculate LTV to CAC Ratio
     ltv_to_cac = ltv / effective_cac if effective_cac > 0 else float('inf')
     
-    # 5. Calculate Delta of Income for the unit
-    income_delta = (ltv - effective_cac) * conversion_rate  # Income per user considering conversion rate
+    # 5. Total cost of serving one acquired user over their lifetime
+    # For each acquired user: fraction converts, rest stay free
+    total_free_cost = (1.0 - conversion_rate) * cost_per_free_user * FREE_USER_LIFETIME_MONTHS
+    total_paying_cost = conversion_rate * cost_per_paying_user * customer_lifetime
+    serving_cost_per_user = total_free_cost + total_paying_cost
+
+    # 6. Calculate Delta of Income for the unit
+    revenue_per_user = ltv * conversion_rate
+    income_delta = revenue_per_user - effective_cac * conversion_rate - serving_cost_per_user
     
     return {
         "customer_lifetime_months": round(customer_lifetime, 1),
+        "free_user_lifetime_months": FREE_USER_LIFETIME_MONTHS,
         "ltv": round(ltv, 2),
         "effective_cac": round(effective_cac, 2),
         "ltv_to_cac_ratio": round(ltv_to_cac, 2),
+        "serving_cost_per_user": round(serving_cost_per_user, 2),
         "delta_of_income": round(income_delta, 2),
         "monthly_revenue_per_user": round(subscription_price * conversion_rate, 2),
         "payback_period_months": round(effective_cac / (subscription_price if subscription_price > 0 else 1), 1),

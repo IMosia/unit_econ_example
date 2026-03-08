@@ -71,6 +71,16 @@ with st.form("unit_form"):
         subscription_price = st.number_input(
             "Subscription Price ($)", min_value=0.01, value=defaults["subscription_price"], step=0.5, format="%.2f"
         )
+        cost_per_free_user = st.number_input(
+            "Cost / Free User / Month ($)", min_value=0.0, value=defaults["cost_per_free_user"], step=0.1, format="%.2f"
+        )
+
+    col3, col4 = st.columns(2)
+    with col3:
+        cost_per_paying_user = st.number_input(
+            "Cost / Paying User / Month ($)", min_value=0.0, value=defaults["cost_per_paying_user"], step=0.1, format="%.2f"
+        )
+    with col4:
         general_spending = st.number_input(
             "General Monthly Spending ($)", min_value=0.0, value=defaults["general_spending"], step=100.0, format="%.2f"
         )
@@ -89,6 +99,8 @@ if submitted:
             virality_rate=virality_rate,
             cac=cac,
             subscription_price=subscription_price,
+            cost_per_free_user=cost_per_free_user,
+            cost_per_paying_user=cost_per_paying_user,
         )
     except ValueError as e:
         st.error(str(e))
@@ -105,13 +117,16 @@ if submitted:
 
     r4, r5, r6 = st.columns(3)
     r4.metric("Income Delta / User", f"${result['delta_of_income']:.2f}")
-    r5.metric("Avg Lifetime", f"{result['customer_lifetime_months']:.1f} months")
-    r6.metric("Payback Period", f"{result['payback_period_months']:.1f} months")
+    r5.metric("Avg Paying Lifetime", f"{result['customer_lifetime_months']:.1f} mo")
+    r6.metric("Avg Free Lifetime", f"{result['free_user_lifetime_months']:.1f} mo")
 
-    r7, r8 = st.columns(2)
-    r7.metric("Monthly Revenue / User", f"${result['monthly_revenue_per_user']:.2f}")
+    r7, r8, r9 = st.columns(3)
+    r7.metric("Serving Cost / User", f"${result['serving_cost_per_user']:.2f}")
+    r8.metric("Payback Period", f"{result['payback_period_months']:.1f} mo")
+    r9.metric("Monthly Revenue / User", f"${result['monthly_revenue_per_user']:.2f}")
+
     healthy = result['ltv_to_cac_ratio'] >= 3
-    r8.metric("Health Check", "Healthy" if healthy else "Needs Work", delta="LTV/CAC >= 3" if healthy else "LTV/CAC < 3", delta_color="normal" if healthy else "inverse")
+    st.metric("Health Check", "Healthy" if healthy else "Needs Work", delta="LTV/CAC >= 3" if healthy else "LTV/CAC < 3", delta_color="normal" if healthy else "inverse")
 
     # ── New users needed to cover general spending ───────────
     if general_spending > 0:
@@ -141,6 +156,8 @@ if submitted:
         "virality_rate": virality_rate,
         "cac": cac,
         "subscription_price": subscription_price,
+        "cost_per_free_user": cost_per_free_user,
+        "cost_per_paying_user": cost_per_paying_user,
         "general_spending": general_spending,
         "ltv": result["ltv"],
         "effective_cac": result["effective_cac"],
@@ -149,6 +166,7 @@ if submitted:
         "customer_lifetime_months": result["customer_lifetime_months"],
         "payback_period_months": result["payback_period_months"],
         "monthly_revenue_per_user": result["monthly_revenue_per_user"],
+        "serving_cost_per_user": result["serving_cost_per_user"],
     }
     if general_spending > 0 and result["delta_of_income"] > 0:
         trial_row["new_users_needed"] = new_users_needed
