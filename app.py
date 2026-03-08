@@ -135,13 +135,35 @@ if submitted:
         delta = result["delta_of_income"]
         if delta > 0:
             new_users_needed = math.ceil(general_spending / delta)
+
+            # Per-user monthly breakdown scaled to required users
+            total_revenue = new_users_needed * result["monthly_revenue_per_user"]
+            total_marketing = new_users_needed * result["effective_cac"] * conversion_rate
+            total_serving = new_users_needed * result["serving_cost_per_user"] / (result["customer_lifetime_months"] if result["customer_lifetime_months"] > 0 else 1)
+            total_costs = total_marketing + total_serving + general_spending
+            net_income = total_revenue - total_costs
+
             col_a, col_b = st.columns(2)
-            col_a.metric("General Spending", f"${general_spending:,.2f} / mo")
-            col_b.metric("New Users Needed", f"{new_users_needed:,} / mo")
-            st.caption(
-                f"Each new user generates \${delta:.2f} in income delta. "
-                f"You need {new_users_needed:,} new users every month to cover \${general_spending:,.2f} in spending."
-            )
+            col_a.metric("New Users Needed", f"{new_users_needed:,} / mo")
+            col_b.metric("General Spending", f"${general_spending:,.2f} / mo")
+
+            st.divider()
+            st.subheader("Monthly Financial Breakdown")
+            st.caption(f"Based on {new_users_needed:,} new users / month")
+
+            b1, b2 = st.columns(2)
+            with b1:
+                st.markdown("**Income**")
+                st.write(f"Subscription Revenue: **${total_revenue:,.2f}**")
+            with b2:
+                st.markdown("**Costs**")
+                st.write(f"Marketing (CAC): **${total_marketing:,.2f}**")
+                st.write(f"Serving Users: **${total_serving:,.2f}**")
+                st.write(f"General Spending: **${general_spending:,.2f}**")
+                st.write(f"Total Costs: **${total_costs:,.2f}**")
+
+            net_color = "normal" if net_income >= 0 else "inverse"
+            st.metric("Net Income / Month", f"${net_income:,.2f}", delta=f"{'profit' if net_income >= 0 else 'loss'}", delta_color=net_color)
         else:
             st.warning(
                 "Income delta per user is zero or negative — "

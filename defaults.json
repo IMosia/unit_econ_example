@@ -6,5 +6,5 @@
     "subscription_price": 9.99,
     "cost_per_free_user": 0.50,
     "cost_per_paying_user": 1.00,
-    "general_spending": 0.0
+    "general_spending": 100000.0
 }
