@@ -79,11 +79,20 @@ if submitted:
     st.divider()
     st.subheader("Results")
 
-    m1, m2, m3, m4 = st.columns(4)
-    m1.metric("LTV", f"${result['ltv']:.2f}")
-    m2.metric("Effective CAC", f"${result['effective_cac']:.2f}")
-    m3.metric("LTV / CAC", f"{result['ltv_to_cac_ratio']:.2f}")
-    m4.metric("Income Delta", f"${result['delta_of_income']:.2f}")
+    r1, r2, r3 = st.columns(3)
+    r1.metric("LTV", f"${result['ltv']:.2f}")
+    r2.metric("Effective CAC", f"${result['effective_cac']:.2f}")
+    r3.metric("LTV / CAC", f"{result['ltv_to_cac_ratio']:.2f}")
+
+    r4, r5, r6 = st.columns(3)
+    r4.metric("Income Delta / User", f"${result['delta_of_income']:.2f}")
+    r5.metric("Avg Lifetime", f"{result['customer_lifetime_months']:.1f} months")
+    r6.metric("Payback Period", f"{result['payback_period_months']:.1f} months")
+
+    r7, r8 = st.columns(2)
+    r7.metric("Monthly Revenue / User", f"${result['monthly_revenue_per_user']:.2f}")
+    healthy = result['ltv_to_cac_ratio'] >= 3
+    r8.metric("Health Check", "Healthy" if healthy else "Needs Work", delta="LTV/CAC >= 3" if healthy else "LTV/CAC < 3", delta_color="normal" if healthy else "inverse")
 
     # ── New users needed to cover general spending ───────────
     if general_spending > 0:
@@ -92,10 +101,12 @@ if submitted:
         delta = result["delta_of_income"]
         if delta > 0:
             new_users_needed = math.ceil(general_spending / delta)
-            st.info(
-                f"To sustain **${general_spending:,.2f}**/month in general spending, "
-                f"you need **{new_users_needed:,} new users** each month "
-                f"(at ${delta:.2f} income delta per user)."
+            col_a, col_b = st.columns(2)
+            col_a.metric("General Spending", f"${general_spending:,.2f} / mo")
+            col_b.metric("New Users Needed", f"{new_users_needed:,} / mo")
+            st.caption(
+                f"Each new user generates \${delta:.2f} in income delta. "
+                f"You need {new_users_needed:,} new users every month to cover \${general_spending:,.2f} in spending."
             )
         else:
             st.warning(
@@ -116,6 +127,9 @@ if submitted:
         "effective_cac": result["effective_cac"],
         "ltv_to_cac_ratio": result["ltv_to_cac_ratio"],
         "delta_of_income": result["delta_of_income"],
+        "customer_lifetime_months": result["customer_lifetime_months"],
+        "payback_period_months": result["payback_period_months"],
+        "monthly_revenue_per_user": result["monthly_revenue_per_user"],
     }
     if general_spending > 0 and result["delta_of_income"] > 0:
         trial_row["new_users_needed"] = new_users_needed

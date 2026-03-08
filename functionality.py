@@ -31,10 +31,13 @@ def calculate_unit_economics(
     income_delta = (ltv - effective_cac) * conversion_rate  # Income per user considering conversion rate
     
     return {
+        "customer_lifetime_months": round(customer_lifetime, 1),
         "ltv": round(ltv, 2),
         "effective_cac": round(effective_cac, 2),
         "ltv_to_cac_ratio": round(ltv_to_cac, 2),
-        "delta_of_income": round(income_delta, 2)
+        "delta_of_income": round(income_delta, 2),
+        "monthly_revenue_per_user": round(subscription_price * conversion_rate, 2),
+        "payback_period_months": round(effective_cac / (subscription_price if subscription_price > 0 else 1), 1),
     }
 
 # Example Usage:
