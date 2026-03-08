@@ -6,6 +6,8 @@ import math
 from dotenv import load_dotenv
 load_dotenv()
 
+import numpy as np
+import plotly.graph_objects as go
 import streamlit as st
 from functionality import calculate_unit_economics
 
@@ -128,6 +130,98 @@ if submitted:
     healthy = result['ltv_to_cac_ratio'] >= 3
     st.metric("Health Check", "Healthy" if healthy else "Needs Work", delta="LTV/CAC >= 3" if healthy else "LTV/CAC < 3", delta_color="normal" if healthy else "inverse")
 
+    # ── LTV/CAC Contour Chart ────────────────────────────────
+    st.divider()
+    st.subheader("LTV / CAC Sensitivity Map")
+
+    PARAM_CONFIG = {
+        "Churn Rate (%)": {"key": "churn_rate", "current": churn_rate_pct, "range": (1.0, 20.0)},
+        "Conversion Rate (%)": {"key": "conversion_rate", "current": conversion_rate_pct, "range": (0.5, 15.0)},
+        "CAC ($)": {"key": "cac", "current": cac, "range": (0.5, 10.0)},
+        "Subscription Price ($)": {"key": "subscription_price", "current": subscription_price, "range": (1.0, 30.0)},
+        "Virality Rate": {"key": "virality_rate", "current": virality_rate, "range": (0.0, 1.0)},
+    }
+
+    axis_labels = list(PARAM_CONFIG.keys())
+    ax_col1, ax_col2 = st.columns(2)
+    with ax_col1:
+        x_axis = st.selectbox("X axis", axis_labels, index=0)
+    with ax_col2:
+        y_default = 1 if axis_labels[1] != x_axis else 2
+        y_options = [l for l in axis_labels if l != x_axis]
+        y_axis = st.selectbox("Y axis", y_options, index=0)
+
+    x_cfg = PARAM_CONFIG[x_axis]
+    y_cfg = PARAM_CONFIG[y_axis]
+
+    x_vals = np.linspace(x_cfg["range"][0], x_cfg["range"][1], 60)
+    y_vals = np.linspace(y_cfg["range"][0], y_cfg["range"][1], 60)
+    Z = np.zeros((len(y_vals), len(x_vals)))
+
+    base_params = {
+        "churn_rate": churn_rate,
+        "conversion_rate": conversion_rate,
+        "virality_rate": virality_rate,
+        "cac": cac,
+        "subscription_price": subscription_price,
+        "cost_per_free_user": cost_per_free_user,
+        "cost_per_paying_user": cost_per_paying_user,
+    }
+
+    for i, yv in enumerate(y_vals):
+        for j, xv in enumerate(x_vals):
+            params = base_params.copy()
+            # Percent inputs need dividing by 100
+            if x_cfg["key"] in ("churn_rate", "conversion_rate"):
+                params[x_cfg["key"]] = xv / 100.0
+            else:
+                params[x_cfg["key"]] = xv
+            if y_cfg["key"] in ("churn_rate", "conversion_rate"):
+                params[y_cfg["key"]] = yv / 100.0
+            else:
+                params[y_cfg["key"]] = yv
+            try:
+                r = calculate_unit_economics(**params)
+                Z[i, j] = r["ltv_to_cac_ratio"]
+            except (ValueError, ZeroDivisionError):
+                Z[i, j] = float('nan')
+
+    # Cap for display
+    Z = np.clip(Z, 0, 10)
+
+    fig = go.Figure()
+    fig.add_trace(go.Contour(
+        x=x_vals, y=y_vals, z=Z,
+        colorscale=[
+            [0, "#d32f2f"], [0.1, "#ff9800"], [0.3, "#ffeb3b"],
+            [0.5, "#8bc34a"], [1.0, "#1b5e20"]
+        ],
+        contours=dict(
+            start=1, end=5, size=0.5,
+            showlabels=True,
+            labelfont=dict(size=11, color="black"),
+        ),
+        colorbar=dict(title="LTV/CAC"),
+    ))
+
+    # Mark current position
+    fig.add_trace(go.Scatter(
+        x=[x_cfg["current"]], y=[y_cfg["current"]],
+        mode="markers+text",
+        marker=dict(size=14, color="white", line=dict(width=2, color="black")),
+        text=["You"], textposition="top center",
+        textfont=dict(size=13, color="black"),
+        showlegend=False,
+    ))
+
+    fig.update_layout(
+        xaxis_title=x_axis,
+        yaxis_title=y_axis,
+        height=500,
+        margin=dict(l=60, r=30, t=30, b=60),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
     # ── New users needed to cover general spending ───────────
     if general_spending > 0:
         st.divider()
@@ -157,31 +251,10 @@ if submitted:
             st.subheader("Monthly Financial Breakdown")
             st.caption(f"Based on {new_users_needed:,} new users / month")
 
-            b1, b2 = st.columns(2)
-            with b1:
-                st.markdown("**Income**")
-                st.write(f"Subscription Revenue: **${total_revenue:,.2f}**")
-            with b2:
-                st.markdown("**Costs**")
-                st.write(f"Marketing (CAC): **${total_marketing:,.2f}**")
-                st.write(f"Serving Users: **${total_serving:,.2f}**")
-                st.write(f"General Spending: **${general_spending:,.2f}**")
-                st.write(f"Total Costs: **${total_costs:,.2f}**")
-
+         
             net_color = "normal" if net_income >= 0 else "inverse"
             st.metric("Net Income / Month", f"${net_income:,.2f}", delta=f"{'profit' if net_income >= 0 else 'loss'}", delta_color=net_color)
 
-            st.divider()
-            st.subheader("Total Lifetime Income from This Month's Cohort")
-            st.caption(f"Total value generated by {new_users_needed:,} users over their entire lifetime")
-
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Lifetime Revenue", f"${cohort_total_revenue:,.2f}")
-            c2.metric("Lifetime CAC", f"${cohort_total_cac:,.2f}")
-            c3.metric("Lifetime Serving Cost", f"${cohort_total_serving:,.2f}")
-
-            cohort_color = "normal" if cohort_lifetime_revenue >= 0 else "inverse"
-            st.metric("Cohort Net Lifetime Income", f"${cohort_lifetime_revenue:,.2f}", delta=f"{'profit' if cohort_lifetime_revenue >= 0 else 'loss'}", delta_color=cohort_color)
         else:
             st.warning(
                 "Income delta per user is zero or negative — "
