@@ -3,6 +3,8 @@ import csv
 import os
 from datetime import datetime
 import math
+from dotenv import load_dotenv
+load_dotenv()
 
 import streamlit as st
 from functionality import calculate_unit_economics
@@ -25,6 +27,23 @@ def append_to_trials(row: dict):
 # ── Page config ──────────────────────────────────────────────
 st.set_page_config(page_title="Unit Economics Calculator", page_icon="📊", layout="centered")
 st.title("📊 Unit Economics Calculator")
+
+# ── Authentication ───────────────────────────────────────────
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "admin")
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    pwd = st.text_input("Enter password", type="password")
+    if st.button("Login"):
+        import hmac
+        if hmac.compare_digest(pwd, APP_PASSWORD):
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("Incorrect password.")
+    st.stop()
 
 defaults = load_defaults()
 
